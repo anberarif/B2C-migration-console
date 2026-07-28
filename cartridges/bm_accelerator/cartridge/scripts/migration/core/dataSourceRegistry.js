@@ -27,14 +27,16 @@ var MODULE_FETCHERS = {
     },
     order: {
         commercetools: '*/cartridge/scripts/migration/orders/connectors/ctpOrderConnector',
-        shopify:       '*/cartridge/scripts/migration/orders/connectors/shopifyOrderConnector'
+        shopify:       '*/cartridge/scripts/migration/orders/connectors/shopifyOrderConnector',
+        sap:           '*/cartridge/scripts/migration/orders/connectors/sapOrderConnector'
     }
 };
 
 var MODULE_MAPPERS = {
     order: {
         commercetools: '*/cartridge/scripts/migration/orders/mappers/ctpOrderMapper',
-        shopify:       '*/cartridge/scripts/migration/orders/mappers/shopifyOrderMapper'
+        shopify:       '*/cartridge/scripts/migration/orders/mappers/shopifyOrderMapper',
+        sap:           '*/cartridge/scripts/migration/orders/mappers/sapOrderMapper'
     }
 };
 

@@ -31,6 +31,12 @@ var SHOPIFY_FULFILLMENT_STATUS_VALUES = [
     'unshipped', 'partial', 'shipped', 'fulfilled'
 ];
 
+/** Stock hybris OrderStatus enum, core + commerceservices extensions only (see sapOrderConnector.js). */
+var SAP_ORDER_STATE_VALUES = ['CREATED', 'ON_VALIDATION', 'COMPLETED', 'CANCELLED', 'PROCESSING_ERROR'];
+
+/** Stock hybris PaymentStatus enum values (Order.paymentStatus), core extension: NOTPAID, PARTPAID, PAID. */
+var SAP_PAYMENT_STATE_VALUES = ['NOTPAID', 'PARTPAID', 'PAID'];
+
 var DATA_TYPES = [
     {
         id:          'order',
@@ -147,7 +153,7 @@ var PLATFORMS = [
         tagline:     'B2C, OCC, Integrations',
         status:      'ready',
         confidence:  60,
-        description: 'Migrate SAP Commerce Cloud (Hybris) products into Salesforce B2C Commerce via the OCC v2 REST API. Phase 1: Product only — Customer, Order, and Catalog are planned for later phases.',
+        description: 'Migrate SAP Commerce Cloud (Hybris) products and orders into Salesforce B2C Commerce via the OCC v2 REST API. Order export requires a small custom OCC endpoint (see connector docs) — Customer and Catalog are planned for later phases.',
         iconClass:   'platform-icon--sap',
         connectHint: 'Configure SAP Commerce OCC credentials (Base URL, Base Site, Client ID/Secret) under Site Preferences → B2C Migration Console, then test the connection.',
         connectFields: []
@@ -273,6 +279,7 @@ function getDataWizardStep(step, dataTypeId) {
 function formatShopifyLabel(value) {
     return String(value)
         .replace(/_/g, ' ')
+        .toLowerCase()
         .replace(/\b\w/g, function (c) { return c.toUpperCase(); });
 }
 
@@ -312,12 +319,25 @@ function getShopifyFulfillmentStatusFilters() {
     return buildStatusFilters(SHOPIFY_FULFILLMENT_STATUS_VALUES, formatShopifyLabel);
 }
 
+function getSapOrderStateFilters() {
+    return buildStatusFilters(SAP_ORDER_STATE_VALUES, formatShopifyLabel);
+}
+
+function getSapPaymentStateFilters() {
+    return buildStatusFilters(SAP_PAYMENT_STATE_VALUES, function (v) {
+        if (v === 'NOTPAID') return 'Not paid';
+        if (v === 'PARTPAID') return 'Partially paid';
+        return formatShopifyLabel(v);
+    });
+}
+
 /**
  * @param {string} [platformId]
  * @returns {Array}
  */
 function getOrderStateFilters(platformId) {
     if (platformId === 'shopify') return getShopifyFinancialStatusFilters();
+    if (platformId === 'sap') return getSapOrderStateFilters();
     return getCtpOrderStateFilters();
 }
 
@@ -327,6 +347,7 @@ function getOrderStateFilters(platformId) {
  */
 function getPaymentStateFilters(platformId) {
     if (platformId === 'shopify') return getShopifyFulfillmentStatusFilters();
+    if (platformId === 'sap') return getSapPaymentStateFilters();
     return getCtpPaymentStateFilters();
 }
 
@@ -346,6 +367,14 @@ function isValidShopifyFulfillmentStatus(value) {
     return !value || SHOPIFY_FULFILLMENT_STATUS_VALUES.indexOf(value) >= 0;
 }
 
+function isValidSapOrderState(value) {
+    return !value || SAP_ORDER_STATE_VALUES.indexOf(value) >= 0;
+}
+
+function isValidSapPaymentState(value) {
+    return !value || SAP_PAYMENT_STATE_VALUES.indexOf(value) >= 0;
+}
+
 /**
  * @param {string} [platformId]
  * @param {string} value
@@ -353,6 +382,7 @@ function isValidShopifyFulfillmentStatus(value) {
  */
 function isValidOrderState(platformId, value) {
     if (platformId === 'shopify') return isValidShopifyFinancialStatus(value);
+    if (platformId === 'sap') return isValidSapOrderState(value);
     return isValidCtpOrderState(value);
 }
 
@@ -363,6 +393,7 @@ function isValidOrderState(platformId, value) {
  */
 function isValidPaymentState(platformId, value) {
     if (platformId === 'shopify') return isValidShopifyFulfillmentStatus(value);
+    if (platformId === 'sap') return isValidSapPaymentState(value);
     return isValidCtpPaymentState(value);
 }
 
@@ -530,11 +561,13 @@ function getMigrationUi(platformId) {
 
     ui.orderAttrScan = pick({
         shopify: 'Scans Shopify <strong>order</strong> metafield definitions and checks whether matching attributes exist on the SFCC <strong>Order</strong> system object.',
-        commercetools: 'Scans CTP <strong>order</strong> custom-type field definitions and checks whether matching attributes exist on the SFCC <strong>Order</strong> system object.'
+        commercetools: 'Scans CTP <strong>order</strong> custom-type field definitions and checks whether matching attributes exist on the SFCC <strong>Order</strong> system object.',
+        sap: 'Scans SAP Commerce <strong>order</strong> extension attribute definitions and checks whether matching attributes exist on the SFCC <strong>Order</strong> system object.'
     });
     ui.orderHowWorks = pick({
         shopify: 'Fetches orders from Shopify in pages, maps and validates each order, and streams one SFCC order XML to',
-        commercetools: 'Fetches orders from commercetools in pages, maps and validates each order, and streams one SFCC order XML to'
+        commercetools: 'Fetches orders from commercetools in pages, maps and validates each order, and streams one SFCC order XML to',
+        sap: 'Fetches orders from SAP Commerce in pages, maps and validates each order, and streams one SFCC order XML to'
     });
     ui.pbHowWorks = pick({
         shopify: 'Select pricebooks from either section (or both). Each generates SFCC pricebook XML with <code>price-table</code> entries per SKU, uploaded to WebDAV. Variant prices are read from Shopify products.',
@@ -546,10 +579,11 @@ function getMigrationUi(platformId) {
     });
     ui.orderIntro = pick({
         shopify: 'Export orders from <strong>Shopify</strong> for the selected date range and generate an SFCC IMPEX package.',
-        commercetools: 'Export orders from <strong>commercetools</strong> for the selected date range and generate an SFCC IMPEX package.'
+        commercetools: 'Export orders from <strong>commercetools</strong> for the selected date range and generate an SFCC IMPEX package.',
+        sap: 'Export orders from <strong>SAP Commerce</strong> for the selected date range and generate an SFCC IMPEX package.'
     });
-    ui.orderStateLabel = pick({ shopify: 'Financial status', commercetools: 'Order state' });
-    ui.paymentStateLabel = pick({ shopify: 'Fulfillment status', commercetools: 'Payment state' });
+    ui.orderStateLabel = pick({ shopify: 'Financial status', commercetools: 'Order state', sap: 'Order state' });
+    ui.paymentStateLabel = pick({ shopify: 'Fulfillment status', commercetools: 'Payment state', sap: 'Payment state' });
 
     ui.reloadingTax = pick({
         shopify: 'Reloading tax data from Shopify...',

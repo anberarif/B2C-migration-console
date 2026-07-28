@@ -62,9 +62,23 @@ function getCtpOrderFields() {
     return fields;
 }
 
+/**
+ * commercetools is the only platform with a real fields source wired up here;
+ * Shopify order metafields are handled inside attrPreflightRunner.checkMissing()
+ * directly. SAP has no defined custom-field contract yet (see sapOrderMapper.js),
+ * so it reports zero fields rather than incorrectly querying CTP.
+ * @returns {Function} () => Array of { name, label, ctpType }
+ */
+function getOrderFieldsFn() {
+    var registry  = require('*/cartridge/scripts/migration/core/dataSourceRegistry');
+    var platformId = registry.getPlatformId();
+    if (platformId === 'commercetools') return getCtpOrderFields;
+    return function () { return []; };
+}
+
 function checkMissingAttributes() {
     var attrIdMapSession = require('*/cartridge/scripts/migration/core/attrIdMapSession');
-    return runner.checkMissing(SFCC_OBJECT_TYPE, getCtpOrderFields, null, attrIdMapSession.read('order'));
+    return runner.checkMissing(SFCC_OBJECT_TYPE, getOrderFieldsFn(), null, attrIdMapSession.read('order'));
 }
 
 function createAttributes(attrs) {
