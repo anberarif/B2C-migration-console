@@ -2074,7 +2074,7 @@ exports.PricebookMigration = function () {
         impexUrl:            pageCtx.impexUrl,
         cssUrl:              URLUtils.staticURL('/css/accelerator-migration.css').toString(),
         attrPreflightJsUrl:  URLUtils.staticURL('/js/attr-preflight.js').toString(),
-        pricebookMigrationJsUrl: URLUtils.staticURL('/js/pricebook-migration.js').toString() + '?v=6',
+        pricebookMigrationJsUrl: URLUtils.staticURL('/js/pricebook-migration.js').toString() + '?v=7',
         jobsUrl:             jobsUrl
     }));
 };
@@ -2118,8 +2118,16 @@ exports.GetPricebooks.public = true;
 
 exports.CheckPricebookAttributes = function () {
     try {
-        var checker = require('*/cartridge/scripts/migration/pricebookMigration/pricebookAttrChecker');
-        jsonResponse({ ok: true, missing: checker.checkMissingAttributes() });
+        var checker  = require('*/cartridge/scripts/migration/pricebookMigration/pricebookAttrChecker');
+        var registry = require('*/cartridge/scripts/migration/core/dataSourceRegistry');
+        // Pricebook has no trace-attribute fallback (unlike Store), and SAP has no verified
+        // endpoint for discovering custom price fields — so for SAP, zero fields are ever
+        // checked.
+        jsonResponse({
+            ok:                   true,
+            missing:              checker.checkMissingAttributes(),
+            noDynamicFieldSource: registry.getPlatformId() === 'sap'
+        });
     } catch (e) {
         jsonResponse({ ok: false, error: e.message || String(e) });
     }

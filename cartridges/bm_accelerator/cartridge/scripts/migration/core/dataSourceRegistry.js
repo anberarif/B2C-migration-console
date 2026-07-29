@@ -11,11 +11,13 @@ var MODULE_FETCHERS = {
     },
     pricebook: {
         commercetools: '*/cartridge/scripts/migration/pricebookMigration/ctpPricebookFetcher',
-        shopify:       '*/cartridge/scripts/migration/pricebookMigration/shopifyPricebookFetcher'
+        shopify:       '*/cartridge/scripts/migration/pricebookMigration/shopifyPricebookFetcher',
+        sap:           '*/cartridge/scripts/migration/pricebookMigration/sapPricebookFetcher'
     },
     pricebookEmbedded: {
         commercetools: '*/cartridge/scripts/migration/pricebookMigration/ctpEmbeddedPriceFetcher',
-        shopify:       '*/cartridge/scripts/migration/pricebookMigration/shopifyPricebookFetcher'
+        shopify:       '*/cartridge/scripts/migration/pricebookMigration/shopifyPricebookFetcher',
+        sap:           '*/cartridge/scripts/migration/pricebookMigration/sapPricebookFetcher'
     },
     tax: {
         commercetools: '*/cartridge/scripts/migration/taxMigration/ctpTaxFetcher',

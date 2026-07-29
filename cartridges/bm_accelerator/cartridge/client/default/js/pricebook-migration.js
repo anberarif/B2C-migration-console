@@ -594,17 +594,23 @@
             runNextExport();
         }
 
-        function renderAttrResults(missing) {
+        function renderAttrResults(missing, noDynamicFieldSource) {
             if (!attrResults) return;
             if (!window.AccAttrPreflight || !window.AccAttrPreflight.renderMissingResults) {
                 attrResults.innerHTML = '<p style="color:#c62828;font-size:13px;margin:0;">Attribute helper script failed to load.</p>';
                 attrResults.style.display = 'block';
                 return;
             }
+            // When nothing was actually checked (e.g. SAP has no field-discovery endpoint),
+            // override the "all exist" message so it doesn't imply a verified match.
+            var effectiveUi = ui;
+            if (noDynamicFieldSource && !missing.length) {
+                effectiveUi = Object.assign({}, ui, { allAttrsExist: ui.pbAttrsNoSource || ui.allAttrsExist });
+            }
             window.AccAttrPreflight.renderMissingResults({
                 container:      attrResults,
                 missing:        missing,
-                ui:             ui,
+                ui:             effectiveUi,
                 createAttrsUrl: cfg.createAttrsUrl,
                 post:           post,
                 getPending:     function () { return pendingMissing; }
@@ -660,12 +666,18 @@
                     }
                     pendingMissing = data.missing || [];
                     if (attrCheckMsg) {
-                        attrCheckMsg.textContent = pendingMissing.length
-                            ? pendingMissing.length + (ui.attrsMissingBrief || ' missing.')
-                            : (ui.attrsAllInSync || 'All in sync.');
-                        attrCheckMsg.style.color = pendingMissing.length ? '#e65100' : '#2e7d32';
+                        if (pendingMissing.length) {
+                            attrCheckMsg.textContent = pendingMissing.length + (ui.attrsMissingBrief || ' missing.');
+                            attrCheckMsg.style.color = '#e65100';
+                        } else if (data.noDynamicFieldSource) {
+                            attrCheckMsg.textContent = ui.pbAttrsNoSource || 'Nothing to check.';
+                            attrCheckMsg.style.color = '#8a9ab8';
+                        } else {
+                            attrCheckMsg.textContent = ui.attrsAllInSync || 'All in sync.';
+                            attrCheckMsg.style.color = '#2e7d32';
+                        }
                     }
-                    renderAttrResults(pendingMissing);
+                    renderAttrResults(pendingMissing, data.noDynamicFieldSource);
                 });
             });
         }
