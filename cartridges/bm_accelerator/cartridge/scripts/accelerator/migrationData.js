@@ -469,7 +469,7 @@ function getMigrationUi(platformId) {
         commercetools: 'No embedded prices found on CTP products.',
         sap: 'No embedded prices found on SAP Commerce products.'
     });
-    ui.pbAttrsNoSource = 'No custom price fields to check yet — SAP Commerce has no verified endpoint for discovering them.';
+    ui.pbAttrsNoSource = 'No custom price fields to check yet.';
 
     ui.storeIntro = pick({
         shopify: 'Select Shopify <strong>locations</strong> to export into one SFCC store IMPEX XML file (physical stores / store locator).',

@@ -2,14 +2,9 @@
 
 /**
  * Fetch pricebook data from SAP Commerce Cloud OCC v2.
- *
- * SAP has no standalone-price resource — price only exists embedded on each
- * product, from GET /{baseSiteId}/products/search. There's also no per-request
- * currency selector, but this base site only has one currency anyway (checked
- * via GET /{baseSiteId}/currencies), so that doesn't matter here. With no
- * channels and only one price per product, this single fetcher covers both
- * the 'pricebook' and 'pricebookEmbedded' registry keys — the same way
- * shopifyPricebookFetcher.js aliases the two.
+ * Price only exists embedded on each product (GET /products/search) — no
+ * standalone-price resource and one currency per base site, so this one
+ * fetcher covers both the 'pricebook' and 'pricebookEmbedded' registry keys.
  */
 
 var sapApi      = require('*/cartridge/scripts/migration/core/sapApi');
@@ -145,12 +140,13 @@ function fetchDistributionChannels() {
 
 /**
  * @param {number} count - total priced products found
+ * @param {boolean} [embeddedSource] - true to build the "embedded" variant of the target
  * @returns {Array} single discovery target for this base site's one currency
  */
-function buildTargetsFromCount(count) {
+function buildTargetsFromCount(count, embeddedSource) {
     var currency = getSiteCurrency();
     return [{
-        exportKey:  'agg_' + exportKeySafe(currency),
+        exportKey:  (embeddedSource ? 'emb_agg_' : 'agg_') + exportKeySafe(currency),
         label:      currency + ' — SAP Commerce catalog',
         subLabel:   'Prices embedded on SAP Commerce products',
         currency:   currency,
@@ -158,7 +154,7 @@ function buildTargetsFromCount(count) {
         channelKey: '',
         aggregate:  true,
         priceCount: count,
-        source:     'standalone'
+        source:     embeddedSource ? 'embedded' : 'standalone'
     }];
 }
 
@@ -174,7 +170,7 @@ function discoverStandaloneStep() {
         nextOffset: prices.length,
         scanned:    prices.length,
         total:      prices.length,
-        standalone: buildTargetsFromCount(prices.length)
+        standalone: buildTargetsFromCount(prices.length, false)
     };
 }
 
@@ -186,19 +182,17 @@ function discoverPricebookTargets() {
 }
 
 /**
- * Embedded prices are the same as standalone prices for SAP (both come from /products/search).
- * @param {number} offset - unused, see discoverStandaloneStep
- * @param {boolean} reset - unused, see discoverStandaloneStep
+ * Same data as discoverStandaloneStep — only the exportKey/label differ.
  * @returns {Object} discovery result with the single embedded target
  */
-function discoverEmbeddedStep(offset, reset) {
-    var result = discoverStandaloneStep(offset, reset);
+function discoverEmbeddedStep() {
+    var prices = fetchAllPrices();
     return {
         done:       true,
-        nextOffset: result.nextOffset,
-        scanned:    result.scanned,
-        total:      result.total,
-        embedded:   result.standalone
+        nextOffset: prices.length,
+        scanned:    prices.length,
+        total:      prices.length,
+        embedded:   buildTargetsFromCount(prices.length, true)
     };
 }
 
