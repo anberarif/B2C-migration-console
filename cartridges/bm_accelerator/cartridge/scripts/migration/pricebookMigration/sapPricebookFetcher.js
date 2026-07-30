@@ -3,16 +3,13 @@
 /**
  * Fetch pricebook data from SAP Commerce Cloud OCC v2.
  *
- * Verified via GET /{baseSiteId}/products/search?pageSize=&currentPage=&fields=FULL
- * (Postman test, 2026-07): this is the only source of pricing — SAP has no
- * standalone-price resource (confirmed against the OCC v2 reference), and no
- * documented way to select a currency at request time. GET /{baseSiteId}/currencies
- * confirmed this base site exposes exactly one currency, so unlike CTP
- * (multi-currency, multi-channel discovery) or even Shopify (single shop
- * currency, but a real distinct standalone-vs-embedded question), SAP has no
- * channel concept at all and only one price per product. This fetcher is
- * registered for BOTH the 'pricebook' (standalone) and 'pricebookEmbedded'
- * registry keys, mirroring how shopifyPricebookFetcher.js aliases the two.
+ * SAP has no standalone-price resource — price only exists embedded on each
+ * product, from GET /{baseSiteId}/products/search. There's also no per-request
+ * currency selector, but this base site only has one currency anyway (checked
+ * via GET /{baseSiteId}/currencies), so that doesn't matter here. With no
+ * channels and only one price per product, this single fetcher covers both
+ * the 'pricebook' and 'pricebookEmbedded' registry keys — the same way
+ * shopifyPricebookFetcher.js aliases the two.
  */
 
 var sapApi      = require('*/cartridge/scripts/migration/core/sapApi');
@@ -99,9 +96,7 @@ function fetchAllPrices() {
 }
 
 /**
- * SAP has one currency per base site and no channel concept, so the currency/channelId/
- * aggregate parameters other platforms use are irrelevant here — kept off the signature
- * entirely rather than declared-but-unused; callers may still pass them positionally.
+ * SAP has one currency and no channels, so unlike other platforms this takes no params.
  * @returns {number} total number of priced products
  */
 function getCount() {
@@ -168,9 +163,8 @@ function buildTargetsFromCount(count) {
 }
 
 /**
- * SAP has only one currency per base site, so discovery completes in a single step.
- * The offset/reset parameters CTP's paginated discovery needs are irrelevant here —
- * kept off the signature entirely; callers may still pass them positionally.
+ * SAP has one currency, so discovery always finishes in a single step — no
+ * offset/reset needed the way CTP's paginated discovery requires them.
  * @returns {Object} discovery result with the single standalone target
  */
 function discoverStandaloneStep() {
