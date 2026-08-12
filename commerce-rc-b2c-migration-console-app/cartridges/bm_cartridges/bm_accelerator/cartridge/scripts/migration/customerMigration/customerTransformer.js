@@ -2,7 +2,7 @@
 
 /**
  * Transform a CT address into an SFCC address payload.
- * CT: streetNumber + streetName → SFCC address1
+ * CT: streetName → SFCC address1
  * @param {Object}  addr        - CT address object
  * @param {boolean} isPreferred - whether to mark as preferred shipping address
  * @returns {Object|null} SFCC address payload, or null if addr is falsy
