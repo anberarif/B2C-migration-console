@@ -4697,7 +4697,7 @@ exports.RunCategoryMigration = function () {
         // Merge session-stored mapping as fallback for keys not provided by client.
         // This handles the cross-session case where the user navigates away after Step 1
         // and returns directly to Step 3 — the attr table is empty so client sends no mapping.
-        var CANONICAL_ATTRS = ['ctId', 'ctSlug', 'ctPosition', 'level', 'isLeaf', 'sapCode'];
+        var CANONICAL_ATTRS = ['ctId', 'level', 'isLeaf', 'sapCode'];
         for (var cai = 0; cai < CANONICAL_ATTRS.length; cai++) {
             var cKey = CANONICAL_ATTRS[cai];
             if (!attrIds[cKey]) {

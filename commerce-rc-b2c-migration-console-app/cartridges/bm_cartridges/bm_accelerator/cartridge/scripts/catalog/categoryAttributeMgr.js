@@ -2,10 +2,14 @@
 /**
  * Manages custom attribute definitions on the SFCC Category system object.
  * Uses OCAPI (sfccClient) — NOT the deprecated DW Script ObjectAttributeDefinition API.
- * Attributes are platform-specific: Shopify gets level/isLeaf, CT gets ctId/ctSlug/ctPosition.
+ * Attributes are platform-specific: Shopify gets level/isLeaf, CT gets ctId.
  */
 var sfccClient  = require('*/cartridge/scripts/migration/sfccClient');
 var attrBuilder = require('*/cartridge/scripts/migration/core/attrBuilder');
+var http        = require('*/cartridge/scripts/migration/core/http');
+var cfg         = require('*/cartridge/scripts/migration/configAccessor');
+var Encoding    = require('dw/crypto/Encoding');
+var Bytes       = require('dw/util/Bytes');
 
 var CATEGORY_OBJECT          = 'Category';
 var CTP_ATTR_GROUP_ID        = 'CTPMigration';
@@ -33,8 +37,7 @@ var SHOPIFY_ATTRS = [
 ];
 
 var CT_ATTRS = [
-    { id: 'ctSlug',     label: 'CT Category Slug',     sfccType: 'string' },
-    { id: 'ctPosition', label: 'CT Category Position', sfccType: 'double' }
+    { id: 'ctId', label: 'CT Category UUID', sfccType: 'string' }
 ];
 
 var SAP_ATTRS = [
@@ -51,6 +54,66 @@ function getAttrGroup(platform) {
     if (platform === 'shopify') return { id: SHOPIFY_ATTR_GROUP_ID, name: SHOPIFY_ATTR_GROUP_NAME };
     if (platform === 'sap')     return { id: SAP_ATTR_GROUP_ID,     name: SAP_ATTR_GROUP_NAME };
     return { id: CTP_ATTR_GROUP_ID, name: CTP_ATTR_GROUP_NAME };
+}
+
+function toBase64(str) {
+    return Encoding.toBase64(new Bytes(str, 'UTF-8'));
+}
+
+function getCtpToken() {
+    var c    = cfg.ctp;
+    var body = 'grant_type=client_credentials';
+    var res = http.post(
+        c.authUrl + '/oauth/token',
+        {
+            Authorization:  'Basic ' + toBase64(c.clientId + ':' + c.clientSecret),
+            'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body
+    );
+    if (res.status !== 200 || !res.data.access_token) {
+        throw new Error('CT auth failed (' + res.status + ')');
+    }
+    return res.data.access_token;
+}
+
+/**
+ * Discover genuine CT custom-Type fields (merchant-defined extensions) scoped
+ * to the "category" resource. Mirrors storeAttrChecker's getCtpStoreFields —
+ * these are dynamic, not the fixed CT_ATTRS list, so any Type/field a merchant
+ * adds in CT shows up here automatically.
+ * @returns {Array<{name: string, label: string, ctpType: string}>}
+ */
+function getCtpCategoryTypeFields() {
+    var c   = cfg.ctp;
+    var tok = getCtpToken();
+    var qs  = '?where=' + encodeURIComponent('resourceTypeIds contains any ("category")') + '&limit=500';
+
+    var res = http.get(
+        c.apiUrl + '/' + c.projectKey + '/types' + qs,
+        { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }
+    );
+    if (res.status !== 200) {
+        throw new Error('CT Types API failed (' + res.status + ')');
+    }
+
+    var fields = [];
+    var types  = (res.data && res.data.results) ? res.data.results : [];
+    var t;
+
+    for (t = 0; t < types.length; t++) {
+        var fieldDefs = types[t].fieldDefinitions || [];
+        var f;
+        for (f = 0; f < fieldDefs.length; f++) {
+            var fd = fieldDefs[f];
+            fields.push({
+                name:    fd.name,
+                label:   attrBuilder.toLabel(fd.label) || fd.name,
+                ctpType: fd.type && fd.type.name ? fd.type.name : 'String'
+            });
+        }
+    }
+    return fields;
 }
 
 /**
@@ -74,6 +137,18 @@ function checkAttributes(platform) {
             ctpType: 'String',
             sfccType: required[i].sfccType
         });
+    }
+
+    // Genuine CT custom-Type fields (merchant-defined extensions on category) — dynamic,
+    // not the fixed CT_ATTRS list above. Best-effort: don't fail the whole check if
+    // CT auth/Types API is unreachable.
+    if (mapPlatform === 'commercetools') {
+        try {
+            var ctpFields = getCtpCategoryTypeFields();
+            for (i = 0; i < ctpFields.length; i++) {
+                fields.push(ctpFields[i]);
+            }
+        } catch (ctpErr) { /* Types API unavailable — required attrs still checked */ }
     }
 
     var classified = runner.classifyFields({
