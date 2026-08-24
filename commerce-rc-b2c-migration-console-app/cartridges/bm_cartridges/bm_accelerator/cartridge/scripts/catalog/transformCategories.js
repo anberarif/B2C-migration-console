@@ -203,10 +203,6 @@ function transformCategory(ctCategory, defaultLocale, idToKey) {
         sfccCategory.pageURL['x-default'] = resolvedSlug || ctCategory.key || '';
     }
 
-    // ctId: CT UUID traceability — SFCC's native ID holds either the CT key or the
-    // UUID, never both, so this is the only place the UUID survives when key is used.
-    sfccCategory.customAttributes.ctId = ctCategory.id || '';
-
     // Genuine CT Custom Type fields (merchant-defined extensions) — dynamic pass-through.
     if (ctCategory.custom && ctCategory.custom.fields) {
         var ctFieldKeys = Object.keys(ctCategory.custom.fields);

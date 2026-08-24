@@ -41,7 +41,7 @@ function importCategory(token, catalogId, sfccCategory, instanceHost) {
         page_url: sfccCategory.pageURL
     };
 
-    // ctId + any genuine CT custom-Type fields, all dynamically prefixed as c_<id>.
+    // Genuine CT custom-Type fields (merchant-defined extensions) — dynamically prefixed as c_<id>.
     var ca = sfccCategory.customAttributes || {};
     Object.keys(ca).forEach(function (key) {
         payload['c_' + key] = ca[key];

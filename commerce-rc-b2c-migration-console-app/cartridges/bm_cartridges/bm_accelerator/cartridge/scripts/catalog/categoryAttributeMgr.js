@@ -2,7 +2,7 @@
 /**
  * Manages custom attribute definitions on the SFCC Category system object.
  * Uses OCAPI (sfccClient) — NOT the deprecated DW Script ObjectAttributeDefinition API.
- * Attributes are platform-specific: Shopify gets level/isLeaf, CT gets ctId.
+ * Attributes are platform-specific: Shopify gets level/isLeaf; CT uses dynamic custom-Type fields only.
  */
 var sfccClient  = require('*/cartridge/scripts/migration/sfccClient');
 var attrBuilder = require('*/cartridge/scripts/migration/core/attrBuilder');
@@ -36,9 +36,7 @@ var SHOPIFY_ATTRS = [
     { id: 'isLeaf', label: 'Category Is Leaf', sfccType: 'boolean' }
 ];
 
-var CT_ATTRS = [
-    { id: 'ctId', label: 'CT Category UUID', sfccType: 'string' }
-];
+var CT_ATTRS = [];
 
 var SAP_ATTRS = [
     { id: 'sapCode', label: 'SAP Category Code', sfccType: 'string' }
