@@ -79,7 +79,8 @@ function getCtpToken() {
  * Discover genuine CT custom-Type fields (merchant-defined extensions) scoped
  * to the "category" resource. Mirrors storeAttrChecker's getCtpStoreFields —
  * these are dynamic, not the fixed CT_ATTRS list, so any Type/field a merchant
- * adds in CT shows up here automatically.
+ * adds in CT shows up here automatically. Times out after 5s to prevent SFCC
+ * message channel closure.
  * @returns {Array<{name: string, label: string, ctpType: string}>}
  */
 function getCtpCategoryTypeFields() {
@@ -89,7 +90,8 @@ function getCtpCategoryTypeFields() {
 
     var res = http.get(
         c.apiUrl + '/' + c.projectKey + '/types' + qs,
-        { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }
+        { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
+        10000
     );
     if (res.status !== 200) {
         throw new Error('CT Types API failed (' + res.status + ')');
@@ -179,9 +181,16 @@ function checkAttributes(platform) {
     }
 
     return {
-        mapped:  classified.mapped,
-        missing: classified.missing,
-        attrs:   attrs
+        mapped:         classified.mapped || [],
+        missing:        classified.missing || [],
+        coveragePending: classified.coveragePending || [],
+        skipped:        classified.skipped || [],
+        suggested:      classified.suggested || [],
+        aiStatus:       classified.aiStatus || 'pending',
+        aiMessage:      classified.aiMessage || 'Validating with AI...',
+        taskName:       classified.taskName || 'Category',
+        sfccObjectType: classified.sfccObjectType || 'Category',
+        attrs:          attrs
     };
 }
 
@@ -236,6 +245,9 @@ function createAttributes(attrs, platform) {
     var created = 0;
     var failed  = 0;
     var errors  = [];
+    var createdAttrs = [];
+    var results = [];
+    var mappedAttrs = [];
 
     try { sfccClient.ensureAttributeGroup(token, CATEGORY_OBJECT, group.id, group.name); } catch (ge) {}
 
@@ -250,13 +262,26 @@ function createAttributes(attrs, platform) {
             sfccClient.createAttributeDefinition(token, CATEGORY_OBJECT, def);
             createOk = true;
             created++;
+
+            var canonicalId = attr.canonicalId || attr.id;
+            createdAttrs.push({ id: attr.id, canonicalId: canonicalId });
+            results.push({ id: attr.id, canonicalId: canonicalId, status: 'created', message: 'Created' });
+            mappedAttrs.push({ id: canonicalId, mappedId: attr.id });
         } catch (e) {
             failed++;
             if (errors.length < 5) errors.push(attr.id + ': ' + (e.message || String(e)));
+            results.push({ id: attr.id, status: 'failed', message: e.message || String(e) });
         }
         try { sfccClient.addAttributeToGroup(token, CATEGORY_OBJECT, group.id, attr.id); } catch (age) {}
     }
-    return { created: created, failed: failed, errors: errors };
+    return {
+        created: created,
+        failed: failed,
+        errors: errors,
+        createdAttrs: createdAttrs,
+        results: results,
+        mappedAttrs: mappedAttrs
+    };
 }
 
 /**
