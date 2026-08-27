@@ -135,7 +135,7 @@
             </div>
             <div id="sm-export-loading" style="font-size:13px;color:#54698d;">Discovering available currencies...</div>
             <p class="sm-file-format-note">
-                <strong>Note:</strong> Each shipping method in SFCC is tied to a single currency. You can create separate XML files for each currency and import them separately, or combine all shipping methods in one file and import it once.
+                <strong>Note:</strong> Each shipping method in SFCC is tied to a single currency. To support multiple currencies on a site, you must create separate shipping methods for each currency. For importing, you have two options: (1) Separate files - create individual XML files per currency, or (2) Collective file - combine all shipping methods for all currencies into a single XML file.
             </p>
         </div>
 
